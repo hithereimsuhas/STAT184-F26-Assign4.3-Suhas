@@ -1,0 +1,5 @@
+This data folder holds the local raw dataset used for the COVID-19 vaccine mortality study.
+File count: 2 local files (covid_dataset.csv and directory_metadata.txt), alongside .gitkeep.
+File types: .csv (tabular data) and .txt (plain text metadata).
+Description: covid_dataset.csv contains 268,166 case records with age_group, vaccine_status, and outcome, and is ignored in .gitignore because of its file size.
+Purpose: Keep raw input data organized separately from the analysis code.
