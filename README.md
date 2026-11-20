@@ -8,3 +8,6 @@ I converted the original R script into a Quarto document (`code/covid_vaccine_st
 After stratifying by age group, unvaccinated cases show a higher mortality rate than vaccinated cases in both age brackets (5.96% vs. 1.68% for ages 50+, and 0.033% vs. 0.023% for under 50).
 
 ![Mortality Rates by Age and Vaccine Status](image.png)
+
+# Contact
+If you have any questions about this repository, feel free to reach out at [spk6372@psu.edu](mailto:spk6372@psu.edu).
