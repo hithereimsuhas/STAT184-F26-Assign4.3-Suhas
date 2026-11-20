@@ -1,0 +1,196 @@
+---
+title: "COVID-19 Vaccine Efficacy and Mortality Analysis"
+author:
+  - "Suhas Kothuru"
+  - "Arjun Kothuru"
+date: "2026-11-20"
+format:
+  pdf:
+    toc: true
+    number-sections: true
+    colorlinks: true
+    fig-pos: "H"
+    output-file: "covid_vaccine_study_kothuru.pdf"
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+
+# Load required packages for data manipulation, tables, and plotting
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(kableExtra)
+library(knitr)
+```
+
+```{r}
+#| label: load-data
+
+# Import the 2021 COVID-19 case dataset
+data <- read.csv("./covid_dataset.csv")
+```
+
+# Introduction and Context
+
+## Study Background
+
+It is 2021, and millions of people have now been vaccinated and later infected with COVID-19. As an FDA analyst, the main question here is pretty straightforward: **does the COVID-19 vaccine actually lower the mortality rate of a COVID infection?** To answer this, I am working strictly with the provided dataset (`covid_dataset.csv`), which tracks `r format(nrow(data), big.mark = ",")` individual COVID-19 cases across age group, vaccination status, and final outcome (*survived* vs. *death*).
+
+![Moderna COVID-19 vaccine vials prepared for administration at Kadena Air Base, Japan (U.S. Air Force / Wikimedia Commons).](covid_vaccine.jpg){#fig-vaccine-vials fig-alt="Vials of the Moderna COVID-19 vaccine lined up on a table prior to administration." width=65% fig-align="center"}
+
+The dataset records `r format(sum(data$outcome == "death"), big.mark = ",")` total deaths across all cases. Before jumping to conclusions, it helps to check both the overall numbers and how age might be affecting the results. More background on how the FDA monitors vaccine safety and effectiveness can be found on the [FDA COVID-19 Vaccines page](https://www.fda.gov/emergency-preparedness-and-response/coronavirus-disease-2019-covid-19/covid-19-vaccines).
+
+# Overall Mortality Breakdown
+
+## Mortality by Vaccine Status
+
+At first glance, the overall numbers look surprising. In @tbl-overall-vax, vaccinated patients actually show a higher overall mortality rate (`0.41%`) than unvaccinated patients (`0.17%`).
+
+```{r}
+#| label: tbl-overall-vax
+#| tbl-cap: "Overall COVID-19 sample size, deaths, and mortality rate by vaccination status."
+
+# Summarize total cases, deaths, and crude mortality rate by vaccine status
+mortality_rates_vaccine <- data %>%
+  group_by(vaccine_status) %>%
+  summarize(
+    Total = n(),
+    Deaths = sum(outcome == "death"),
+    `Mortality Rate` = round(Deaths / Total, 5)
+  ) %>%
+  kable(
+    col.names = c("Vaccine Status", "Sample Size", "Deaths", "Mortality Rate"),
+    booktabs = TRUE
+  ) %>%
+  kable_classic(full_width = FALSE, latex_options = "hold_position")
+
+mortality_rates_vaccine
+```
+
+## Mortality by Age Group
+
+Looking at age alone tells a completely different story. As shown in @tbl-overall-age, patients aged 50 and older have a much higher mortality rate (`2.16%`) than patients under 50 (`0.029%`), regardless of vaccination status.
+
+```{r}
+#| label: tbl-overall-age
+#| tbl-cap: "Overall COVID-19 sample size, deaths, and mortality rate by age group."
+
+# Summarize total cases, deaths, and mortality rate by age group
+mortality_rate_age <- data %>%
+  select(age_group, outcome) %>%
+  group_by(age_group) %>%
+  summarize(
+    Total = n(),
+    Deaths = sum(outcome == "death"),
+    mortality_Rate = round(Deaths / Total, 5)
+  ) %>%
+  kable(
+    col.names = c("Age Group", "Sample Size", "Deaths", "Mortality Rate"),
+    booktabs = TRUE
+  ) %>%
+  kable_classic(full_width = FALSE, latex_options = "hold_position")
+
+mortality_rate_age
+```
+
+# Age-Stratified Analysis
+
+## Population Distribution by Age and Vaccine Status
+
+Because age has such a huge impact on COVID-19 mortality, we need to see how vaccinations are distributed across the two age groups.
+
+```{r}
+#| label: fig-pop-age
+#| fig-cap: "Distribution of Study Population by Age Group and Vaccination Status"
+#| fig-alt: "Grouped bar chart comparing the number of vaccinated and unvaccinated cases for people aged 50 plus and under 50."
+#| fig-width: 6.5
+#| fig-height: 4
+
+# Count cases by age group and vaccination status
+applications_vaccine_status_age <- data %>%
+  select(age_group, vaccine_status) %>%
+  group_by(age_group, vaccine_status) %>%
+  summarize(
+    Total = n(),
+    .groups = "drop"
+  )
+
+# Plot case counts by age group and vaccine status
+ggplot(applications_vaccine_status_age, aes(x = age_group, y = Total, fill = vaccine_status)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Study Population by Age and Vaccine Status",
+    x = "Age Group",
+    y = "Frequency",
+    fill = "Vaccine Status"
+  ) +
+  theme_minimal()
+```
+
+In @fig-pop-age, there is a clear imbalance in who got vaccinated. Most people in the `50 +` group are vaccinated (`27,307` vaccinated vs. only `3,440` unvaccinated), whereas the `under 50` group has far more unvaccinated cases (`147,612` unvaccinated vs. `89,807` vaccinated). Since older adults make up a large share of the vaccinated group and also face much higher baseline risk, combining both age groups together skews the overall vaccinated mortality rate upward.
+
+## Mortality Rates Within Age Groups
+
+Once we split the mortality rates by both age group and vaccine status, the picture flips. The code chunk below computes the stratified mortality rates used in the final comparison.
+
+```{r}
+#| label: stratified-mortality
+#| echo: true
+
+# Calculate mortality rates broken down by both age group and vaccine status
+mortality_rates_vaccine_status_age <- data %>%
+  group_by(age_group, vaccine_status) %>%
+  summarize(
+    Total = n(),
+    Deaths = sum(outcome == "death"),
+    mortality_Rate = Deaths / Total,
+    .groups = "drop"
+  )
+```
+
+```{r}
+#| label: fig-mort-age-vax
+#| fig-cap: "COVID-19 Mortality Rates Stratified by Age Group and Vaccination Status"
+#| fig-alt: "Grouped bar chart showing that unvaccinated individuals have higher mortality rates than vaccinated individuals in both the 50 plus and under 50 age groups."
+#| fig-width: 6.5
+#| fig-height: 4
+
+# Plot stratified mortality rates by age group and vaccine status
+ggplot(mortality_rates_vaccine_status_age, aes(x = age_group, y = mortality_Rate, fill = vaccine_status)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Mortality Rates by Age and Vaccine Status",
+    x = "Age Group",
+    y = "Mortality Rate",
+    fill = "Vaccine Status"
+  ) +
+  theme_minimal()
+```
+
+As shown in @fig-mort-age-vax, unvaccinated patients die at a higher rate than vaccinated patients in **both** age groups:
+
+- **Ages 50+:** Unvaccinated mortality is `5.96%` (`205` deaths out of `3,440` cases), compared to `1.68%` (`460` deaths out of `27,307` cases) for vaccinated patients. That is more than three times lower for the vaccinated group.
+- **Under 50:** Mortality is much lower overall, but unvaccinated cases still have a higher rate (`0.033%`, or `48` out of `147,612`) than vaccinated cases (`0.023%`, or `21` out of `89,807`).
+
+# Conclusion
+
+Based on this dataset, **yes, the COVID-19 vaccine reduces the mortality rate of COVID infection**. Looking only at the combined numbers makes the vaccine seem ineffective because older adults, who have a much higher baseline risk of death, were vaccinated at a much higher rate than younger people. Once age is accounted for, vaccination is consistently associated with lower mortality across both age brackets, which is a textbook case of *Simpson's paradox*.
+
+# References
+
+- U.S. Air Force / Wikimedia Commons. (2021). *Moderna COVID-19 vaccine* [Photograph]. Public domain. Retrieved from <https://commons.wikimedia.org/wiki/File:Moderna_COVID-19_vaccine.jpg>
+- U.S. Food and Drug Administration (FDA). *COVID-19 Vaccines*. Retrieved from <https://www.fda.gov/emergency-preparedness-and-response/coronavirus-disease-2019-covid-19/covid-19-vaccines>
+
+# Code Appendix
+
+```{r}
+#| label: code-appendix
+#| ref.label: !expr knitr::all_labels()
+#| echo: true
+#| eval: false
+```
